@@ -53,6 +53,6 @@ export default function Signup() {
           Already have an account? <Link to="/login" style={{ color: '#6d5efc' }}>Sign in</Link>
         </p>
       </div>
-    </div>
+    </div> //chinmay was here
   )
 }
