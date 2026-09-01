@@ -82,8 +82,13 @@ export default function Placement() {
           </div>
 
           <div className="card">
-            <h2>Genie analysis <GenieBadge mode={result.genie_analysis.mode} /></h2>
+            <h2>Genie data lookup <GenieBadge mode={result.genie_analysis.mode} /></h2>
             <div className="answer-box">{result.genie_analysis.answer}</div>
+          </div>
+
+          <div className="card">
+            <h2>Improvement plan <GenieBadge mode={result.improvement_plan.mode} /></h2>
+            <div className="answer-box">{result.improvement_plan.answer}</div>
           </div>
         </>
       )}

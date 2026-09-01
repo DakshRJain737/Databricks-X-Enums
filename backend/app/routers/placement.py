@@ -4,7 +4,7 @@ from pypdf import PdfReader
 import io
 from app.core.security import get_current_user
 from app.core.db import User
-from app.core.databricks import get_genie
+from app.core.databricks import get_genie, call_foundation_model
 
 router = APIRouter(prefix="/api/placement", tags=["placement"])
 
@@ -58,13 +58,26 @@ async def analyze_resume(
             "matched_skills": [s for s in drive["skills"] if s in found_skills],
         })
 
-    question = (
-        f"Student with CGPA {cgpa}, branch {branch}, detected skills: {found_skills}. "
-        f"Give a readiness assessment and a skill-gap improvement plan against these "
-        f"drives: {[d['company'] for d in DRIVES]}."
+    # 1) Genie handles the DATA question — something it can turn into SQL
+    #    against career_academics.raw.placement_drives / students.
+    genie_question = (
+        f"For a {branch} student with CGPA {cgpa}, which rows in placement_drives "
+        f"have min_cgpa <= {cgpa} and include '{branch}' in eligible_branches? "
+        f"List company, role, and required_skills for each matching drive."
     )
     genie = get_genie("career_academics")
-    genie_response = await genie.ask(question)
+    genie_response = await genie.ask(genie_question)
+
+    # 2) The Foundation Model handles the WRITING/REASONING task — turning
+    #    the eligibility + skill-gap data into an actual improvement plan.
+    #    This is NOT a SQL question, so it doesn't go to Genie.
+    plan_prompt = (
+        f"A {branch} student with CGPA {cgpa} has these detected skills: {found_skills}. "
+        f"Their eligibility results are: {eligibility}. "
+        f"Write a short, encouraging readiness assessment (2-3 sentences) and a "
+        f"3-point skill-gap improvement plan to become eligible for more drives."
+    )
+    plan_response = await call_foundation_model(plan_prompt)
 
     readiness_score = round(
         100 * len(found_skills) / max(len(SKILL_KEYWORDS), 1), 1
@@ -75,4 +88,5 @@ async def analyze_resume(
         "readiness_score": readiness_score,
         "eligibility": eligibility,
         "genie_analysis": genie_response,
+        "improvement_plan": plan_response,
     }

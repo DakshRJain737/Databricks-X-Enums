@@ -1,10 +1,8 @@
 """
-Thin client around the Databricks Genie Conversation API.
-
-If DATABRICKS_HOST / DATABRICKS_TOKEN aren't set (or a call fails), every
-method falls back to a clearly-labeled mock so the rest of the app keeps
-working end-to-end without a live workspace. Swap MOCK_MODE off by filling
-in the .env — no code changes needed elsewhere.
+Thin clients around Databricks Genie (structured data Q&A) and Databricks
+Model Serving (free-text reasoning). If DATABRICKS_HOST / DATABRICKS_TOKEN
+aren't set (or a call fails), both fall back to a clearly-labeled mock so
+the rest of the app keeps working end-to-end without a live workspace.
 """
 import asyncio
 import httpx
@@ -58,9 +56,11 @@ class GenieClient:
                         break
                     await asyncio.sleep(1)
 
+                # Each attachment's "text" field, when present, is an object
+                # like {"content": "...", "id": "..."} — not a plain string.
                 text_parts = [
-                    a.get("text", "") for a in payload.get("attachments", [])
-                    if "text" in a
+                    a["text"]["content"] for a in payload.get("attachments", [])
+                    if isinstance(a.get("text"), dict) and a["text"].get("content")
                 ]
                 answer = "\n".join(text_parts) or "Genie returned no text content."
                 return {"mode": "live", "answer": answer, "query_result": payload}
@@ -68,7 +68,7 @@ class GenieClient:
             return {
                 "mode": "error",
                 "answer": f"[GENIE ERROR] Falling back — could not reach Databricks "
-                          f"Genie ({exc.__class__.__name__}). Check DATABRICKS_HOST, "
+                          f"Genie ({exc.__class__.__name__}: {exc}). Check DATABRICKS_HOST, "
                           f"DATABRICKS_TOKEN and the space ID.",
                 "query_result": None,
             }
@@ -83,3 +83,43 @@ def get_genie(feature: str) -> GenieClient:
         "safety": settings.GENIE_SAFETY_SPACE_ID,
     }
     return GenieClient(space_map.get(feature, ""))
+
+
+async def call_foundation_model(prompt: str) -> dict:
+    """
+    Free-text reasoning (e.g. turning a data lookup into a written readiness
+    plan) — NOT a SQL/data question, so it goes to Model Serving, not Genie.
+    """
+    if not DATABRICKS_CONFIGURED:
+        return {
+            "mode": "mock",
+            "answer": f"[MOCK MODEL] No Databricks connection configured. In "
+                      f"production this prompt would go to "
+                      f"'{settings.FOUNDATION_MODEL_ENDPOINT}':\n\n{prompt}",
+        }
+
+    url = (
+        f"{settings.DATABRICKS_HOST.rstrip('/')}/serving-endpoints/"
+        f"{settings.FOUNDATION_MODEL_ENDPOINT}/invocations"
+    )
+    headers = {
+        "Authorization": f"Bearer {settings.DATABRICKS_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    body = {
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 500,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(url, headers=headers, json=body)
+            resp.raise_for_status()
+            data = resp.json()
+            answer = data["choices"][0]["message"]["content"]
+            return {"mode": "live", "answer": answer}
+    except Exception as exc:
+        return {
+            "mode": "error",
+            "answer": f"[MODEL ERROR] Could not reach {settings.FOUNDATION_MODEL_ENDPOINT} "
+                      f"({exc.__class__.__name__}: {exc}).",
+        }
