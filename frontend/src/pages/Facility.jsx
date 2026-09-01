@@ -2,6 +2,11 @@ import { useState, useEffect, useMemo } from 'react'
 import api from '../api/client'
 import GenieBadge from '../components/GenieBadge.jsx'
 
+//added here
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+//added here
+
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 // Half-hour grid, 8am - 6pm. Adjust to match your campus's actual class hours.
 const HOURS = Array.from({ length: 20 }, (_, i) => {
@@ -340,7 +345,8 @@ function AskFacility() {
     }
   }
 
-  return (
+  
+return (
     <div>
       <div className="fc-card">
         <form onSubmit={ask} className="fc-search-row">
@@ -367,7 +373,12 @@ function AskFacility() {
         {[...history].reverse().map((item, i) => (
           <div className="fc-card fc-thread-item" key={i}>
             <div className="fc-thread-question"><span className="fc-prompt-marker">&gt;</span>{item.question}</div>
-            <div className="fc-answer-box">{item.answer}<GenieBadge mode={item.mode} /></div>
+            <div className="fc-answer-box">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {item.answer}
+              </ReactMarkdown>
+              <GenieBadge mode={item.mode} />
+            </div>
           </div>
         ))}
       </div>

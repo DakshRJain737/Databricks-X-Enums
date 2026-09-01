@@ -2,6 +2,9 @@ import { useState } from 'react'
 import api from '../api/client'
 import GenieBadge from '../components/GenieBadge.jsx'
 
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
 export default function Placement() {
   const [file, setFile] = useState(null)
   const [cgpa, setCgpa] = useState('8.0')
@@ -83,12 +86,20 @@ export default function Placement() {
 
           <div className="card">
             <h2>Genie data lookup <GenieBadge mode={result.genie_analysis.mode} /></h2>
-            <div className="answer-box">{result.genie_analysis.answer}</div>
+            <div className="answer-box">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {result.genie_analysis.answer}
+              </ReactMarkdown>
+            </div>
           </div>
 
           <div className="card">
             <h2>Improvement plan <GenieBadge mode={result.improvement_plan.mode} /></h2>
-            <div className="answer-box">{result.improvement_plan.answer}</div>
+            <div className="answer-box">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {result.improvement_plan.answer}
+              </ReactMarkdown>
+            </div>
           </div>
         </>
       )}
