@@ -30,6 +30,8 @@ class Settings(BaseSettings):
 
     DATABRICKS_HTTP_PATH: str = ""
 
+    GENIE_LEADERBOARD_SPACE_ID: str = ""
+
     class Config:
         env_file = ".env"
         extra = "ignore"

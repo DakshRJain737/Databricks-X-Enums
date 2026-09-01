@@ -7,8 +7,12 @@ from app.core.security import get_current_user
 from app.core.db import get_db, User
 from app.core.config import settings
 from app.core.databricks import get_genie
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/leaderboard", tags=["leaderboard"])
+
+class LeaderboardQuestion(BaseModel):
+    question: str
 
 
 def compute_score(u: User) -> float:
@@ -143,3 +147,25 @@ async def compare(
     genie_response = await genie.ask(question)
 
     return {"github": gh_data, "codeforces": cf_data, "genie_analysis": genie_response}
+
+@router.post("/ask")
+async def ask_leaderboard(
+    payload: LeaderboardQuestion,
+    user: User = Depends(get_current_user),
+):
+    question = payload.question.strip()
+    if not question:
+        raise HTTPException(400, "question cannot be empty")
+
+    # Leaderboard Q&A is a data lookup over main.campus_ai.users,
+    # so it goes to Genie (NL-to-SQL) rather than the raw foundation model.
+    genie = get_genie("leaderboard")
+
+    genie_question = (
+        f"Using the main.campus_ai.users table, answer this question about "
+        f"student rankings, LeetCode stats, GitHub stats, CGPA, branch, or skills: "
+        f"{question}"
+    )
+    genie_response = await genie.ask(genie_question)
+
+    return {"question": question, "genie_analysis": genie_response}

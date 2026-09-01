@@ -3,7 +3,7 @@ import api from '../api/client'
 import GenieBadge from '../components/GenieBadge.jsx'
 
 export default function Leaderboard() {
-  const [tab, setTab] = useState('board') // 'board' | 'myrank' | 'live'
+  const [tab, setTab] = useState('board') // 'board' | 'myrank' | 'live' | 'ask'
 
   return (
     <div>
@@ -18,11 +18,15 @@ export default function Leaderboard() {
         <button className={tab === 'live' ? 'tab-active' : ''} onClick={() => setTab('live')}>
           Live GitHub / Codeforces Compare
         </button>
+        <button className={tab === 'ask' ? 'tab-active' : ''} onClick={() => setTab('ask')}>
+          Ask a Question
+        </button>
       </div>
 
       {tab === 'board' && <FullBoard />}
       {tab === 'myrank' && <MyRank />}
       {tab === 'live' && <LiveCompare />}
+      {tab === 'ask' && <AskLeaderboard />}
     </div>
   )
 }
@@ -256,6 +260,72 @@ function LiveCompare() {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+function AskLeaderboard() {
+  const [question, setQuestion] = useState('')
+  const [history, setHistory] = useState([]) // [{question, answer, mode}]
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const ask = async (e) => {
+    e.preventDefault()
+    if (!question.trim()) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await api.post('/leaderboard/ask', { question })
+      setHistory((h) => [
+        ...h,
+        {
+          question,
+          answer: res.data.genie_analysis.answer,
+          mode: res.data.genie_analysis.mode,
+        },
+      ])
+      setQuestion('')
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to get an answer')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="card">
+        <form onSubmit={ask} style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="e.g. Who has the highest LeetCode rating in CSE?"
+            style={{ flex: 1 }}
+            required
+          />
+          <button disabled={loading} type="submit">{loading ? 'Asking...' : 'Ask'}</button>
+        </form>
+        {error && <div className="error-text" style={{ marginTop: 8 }}>{error}</div>}
+      </div>
+
+      {history.length === 0 && !loading && (
+        <div className="card" style={{ color: '#9aa1af' }}>
+          Ask anything about the leaderboard — e.g. "Who's the top ISE student by CGPA?",
+          "How many students have solved over 200 LeetCode problems?", or
+          "Compare average GitHub repos between CSE and ECE."
+        </div>
+      )}
+
+      {[...history].reverse().map((item, i) => (
+        <div className="card" key={i}>
+          <p style={{ fontWeight: 'bold' }}>{item.question}</p>
+          <div className="answer-box" style={{ marginTop: 8 }}>
+            {item.answer}
+            <GenieBadge mode={item.mode} />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

@@ -81,6 +81,7 @@ def get_genie(feature: str) -> GenieClient:
         "campus_ops": settings.GENIE_CAMPUS_OPS_SPACE_ID,
         "community": settings.GENIE_COMMUNITY_SPACE_ID,
         "safety": settings.GENIE_SAFETY_SPACE_ID,
+        "leaderboard": settings.GENIE_LEADERBOARD_SPACE_ID,
     }
     return GenieClient(space_map.get(feature, ""))
 
