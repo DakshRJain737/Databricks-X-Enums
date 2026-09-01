@@ -9,10 +9,7 @@ class Settings(BaseSettings):
     DATABRICKS_WAREHOUSE_ID: str = ""
 
     GENIE_CAREER_ACADEMICS_SPACE_ID: str = ""
-    GENIE_RESEARCH_SPACE_ID: str = ""
     GENIE_CAMPUS_OPS_SPACE_ID: str = ""
-    GENIE_COMMUNITY_SPACE_ID: str = ""
-    GENIE_SAFETY_SPACE_ID: str = ""
 
     FOUNDATION_MODEL_ENDPOINT: str = "databricks-meta-llama-3-3-70b-instruct"
 

@@ -17,6 +17,7 @@ class GenieClient:
             "Authorization": f"Bearer {settings.DATABRICKS_TOKEN}",
             "Content-Type": "application/json",
         }
+        print(space_id)
         self.mock_mode = not (DATABRICKS_CONFIGURED and space_id)
 
     async def ask(self, question: str) -> dict:
@@ -77,11 +78,8 @@ class GenieClient:
 def get_genie(feature: str) -> GenieClient:
     space_map = {
         "career_academics": settings.GENIE_CAREER_ACADEMICS_SPACE_ID,
-        "research": settings.GENIE_RESEARCH_SPACE_ID,
-        "campus_ops": settings.GENIE_CAMPUS_OPS_SPACE_ID,
-        "community": settings.GENIE_COMMUNITY_SPACE_ID,
-        "safety": settings.GENIE_SAFETY_SPACE_ID,
         "leaderboard": settings.GENIE_LEADERBOARD_SPACE_ID,
+        "campus_ops": settings.GENIE_CAMPUS_OPS_SPACE_ID,
     }
     return GenieClient(space_map.get(feature, ""))
 

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.db import init_db
 from app.core.config import DATABRICKS_CONFIGURED
 from app.routers import auth, users, placement, pdf_qa, leaderboard, facility
+from app.routers import facility
 
 app = FastAPI(title="Campus.AI API", version="1.0.0")
 

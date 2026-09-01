@@ -44,6 +44,18 @@ class User(Base):
     github_following: Mapped[int] = mapped_column(Integer, default=0)
     github_profile_url: Mapped[str] = mapped_column(String, default="")
 
+class FacilitySlot(Base):
+    __tablename__ = "facility_slots"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    room_number: Mapped[str] = mapped_column(String)
+    room_type: Mapped[str] = mapped_column(String)          # 'classroom' | 'lab'
+    floor_number: Mapped[int] = mapped_column(Integer)
+    day_of_week: Mapped[str] = mapped_column(String)        # 'Monday'...'Saturday'
+    start_time: Mapped[str] = mapped_column(String)         # "14:00"
+    end_time: Mapped[str] = mapped_column(String)           # "16:00"
+    purpose: Mapped[str] = mapped_column(String, default="")
+    created_by_email: Mapped[str] = mapped_column(String, default="")
 
 class ForumPost(Base):
     __tablename__ = "forum_posts"
