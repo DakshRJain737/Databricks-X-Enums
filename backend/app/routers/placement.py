@@ -19,8 +19,54 @@ DRIVES = [
      "skills": ["dsa", "oops", "dbms"]},
 ]
 
-SKILL_KEYWORDS = ["dsa", "system design", "java", "python", "sql", "oops", "dbms",
-                   "react", "node", "aws", "docker", "kubernetes", "machine learning"]
+SKILL_KEYWORDS = [
+    # Core CS fundamentals
+    "dsa", "data structures", "algorithms", "system design", "oops",
+    "operating systems", "os", "dbms", "computer networks", "cn",
+    "compiler design", "theory of computation", "discrete mathematics",
+
+    # Languages
+    "python", "java", "c++", "c", "c#", "javascript", "typescript",
+    "go", "golang", "rust", "kotlin", "swift", "scala", "r", "php", "ruby",
+
+    # Web development
+    "html", "css", "react", "reactjs", "angular", "vue", "next.js",
+    "node", "nodejs", "express", "django", "flask", "fastapi",
+    "spring", "spring boot", "rest api", "graphql", "webpack", "redux",
+
+    # Databases
+    "sql", "mysql", "postgresql", "mongodb", "redis", "cassandra",
+    "sqlite", "oracle", "dynamodb", "elasticsearch", "firebase",
+
+    # Cloud & DevOps
+    "aws", "azure", "gcp", "docker", "kubernetes", "terraform",
+    "ci/cd", "jenkins", "github actions", "ansible", "linux", "bash",
+    "nginx", "microservices", "serverless",
+
+    # Data / ML / AI
+    "machine learning", "deep learning", "neural networks", "nlp",
+    "computer vision", "data science", "data analysis", "pandas",
+    "numpy", "scikit-learn", "tensorflow", "pytorch", "keras",
+    "statistics", "data visualization", "power bi", "tableau",
+    "big data", "spark", "hadoop", "etl", "genai", "llm", "rag",
+
+    # Mobile
+    "android", "ios", "flutter", "react native", "swiftui",
+
+    # Version control & tools
+    "git", "github", "gitlab", "jira", "confluence", "figma",
+
+    # Testing & QA
+    "unit testing", "selenium", "junit", "pytest", "test automation",
+
+    # Soft / general
+    "communication", "leadership", "problem solving", "teamwork",
+    "agile", "scrum", "project management",
+
+    # Security & blockchain
+    "cybersecurity", "penetration testing", "blockchain", "solidity",
+    "cryptography",
+]
 
 
 def extract_text(file_bytes: bytes, filename: str) -> str:
