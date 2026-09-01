@@ -17,8 +17,8 @@ export function AuthProvider({ children }) {
     setToken(res.data.access_token)
   }
 
-  const signup = async (email, password, full_name, branch) => {
-    const res = await api.post('/auth/signup', { email, password, full_name, branch })
+  const signup = async (payload) => {
+    const res = await api.post('/auth/signup', payload)
     localStorage.setItem('campusai_token', res.data.access_token)
     setToken(res.data.access_token)
   }

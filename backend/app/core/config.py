@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     GITHUB_API_BASE: str = "https://api.github.com"
     CODEFORCES_API_BASE: str = "https://codeforces.com/api"
 
+    DATABRICKS_HTTP_PATH: str = ""
+
     class Config:
         env_file = ".env"
         extra = "ignore"

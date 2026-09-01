@@ -170,3 +170,9 @@ button.secondary {
   border-radius: 999px;
   background: var(--accent);
 }
+
+.skill-tag-input { border: 1px solid #333; border-radius: 8px; padding: 6px 8px; }
+.skill-tag-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.skill-bubble { background: #6d5efc22; color: #6d5efc; border-radius: 999px; padding: 4px 10px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.skill-bubble-remove { background: none; border: none; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; }
+.skill-tag-input input { border: none; outline: none; background: transparent; flex: 1; min-width: 120px; font-size: 14px; }
