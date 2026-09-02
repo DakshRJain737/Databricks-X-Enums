@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.db import init_db
@@ -7,6 +9,11 @@ from app.services.placement_drives import refresh_drives
 from app.routers import auth, users, placement, pdf_qa, leaderboard, facility
 
 app = FastAPI(title="Campus.AI API", version="1.0.0")
+
+cors_origins = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173"
+).split(",")
 
 app.add_middleware(
     CORSMiddleware,
