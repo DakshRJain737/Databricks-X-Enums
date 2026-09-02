@@ -56,6 +56,12 @@ class MessageResponse(BaseModel):
     message: str
 
 
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str
+    new_password: str
+
+
 @router.post("/signup", response_model=MessageResponse)
 async def signup(
     payload: SignupRequest,
@@ -199,3 +205,30 @@ async def verify_otp(
 
     token = create_access_token(user.email)
     return TokenResponse(access_token=token)
+
+
+# --- Forgot password (NEW) ---
+# Flow: user requests a code via the existing /send-otp endpoint (same one
+# OTP-login uses), then hits this endpoint with that code + a new password.
+# Reuses the same OTP storage/expiry -- no separate "reset token" needed.
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == payload.email))
+    user = result.scalar_one_or_none()
+    if not user or not user.otp_hash:
+        raise HTTPException(401, "Invalid or expired OTP. Please request a new one.")
+
+    if not user.otp_expires_at or datetime.now(timezone.utc) > datetime.fromisoformat(user.otp_expires_at):
+        raise HTTPException(401, "OTP expired. Please request a new one.")
+
+    if not verify_otp_hash(payload.otp, user.otp_hash):
+        raise HTTPException(401, "Incorrect OTP")
+
+    user.hashed_password = hash_password(payload.new_password)
+    # One-time use: clear it so it can't be replayed.
+    user.otp_hash = ""
+    user.otp_expires_at = ""
+    await db.commit()
+
+    return MessageResponse(message="Password updated. You can now log in.")
