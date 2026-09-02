@@ -72,10 +72,15 @@ async def create_slot(
     if payload.start_time >= payload.end_time:
         raise HTTPException(400, "start_time must be before end_time")
 
-    # Overlap check: same room, same day, overlapping time range
+    # Overlap check: a room is uniquely identified by
+    # (room_number, room_type, floor_number) -- e.g. classroom "204" on floor 2
+    # and lab "204" on floor 3 are different rooms and should never clash.
+    # Within the same room, overlapping time ranges on the same day still conflict.
     result = await db.execute(
         select(FacilitySlot).where(
             FacilitySlot.room_number == payload.room_number,
+            FacilitySlot.room_type == payload.room_type,
+            FacilitySlot.floor_number == payload.floor_number,
             FacilitySlot.day_of_week == payload.day_of_week,
         )
     )
@@ -84,8 +89,8 @@ async def create_slot(
         if payload.start_time < s.end_time and s.start_time < payload.end_time:
             raise HTTPException(
                 409,
-                f"{payload.room_number} is already booked {s.start_time}-{s.end_time} "
-                f"on {payload.day_of_week} ({s.purpose or 'no purpose given'})",
+                f"{payload.room_number} ({payload.room_type}, floor {payload.floor_number}) is already booked "
+                f"{s.start_time}-{s.end_time} on {payload.day_of_week} ({s.purpose or 'no purpose given'})",
             )
 
     slot = FacilitySlot(

@@ -90,7 +90,12 @@ const TOPBAR_STYLES = `
   justify-content: flex-end;
   padding: 14px 20px 0;
 }
-.campusai-user-menu { position: relative; }
+.campusai-user-menu {
+  position: fixed;
+  top: 18px;
+  right: 20px;
+  z-index: 60;
+}
 .campusai-user-avatar {
   width: 40px;
   height: 40px;
