@@ -1,11 +1,8 @@
 import { createContext, useContext, useState } from 'react'
 import api from './api/client'
-
 const AuthContext = createContext(null)
-
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(localStorage.getItem('campusai_token'))
-
   const login = async (email, password) => {
     const form = new URLSearchParams()
     form.append('username', email)
@@ -16,23 +13,29 @@ export function AuthProvider({ children }) {
     localStorage.setItem('campusai_token', res.data.access_token)
     setToken(res.data.access_token)
   }
-
-  const signup = async (payload) => {
-    const res = await api.post('/auth/signup', payload)
+  // NEW: OTP login (step 1) -- sends a code to the user's college email
+  const sendOtp = async (email) => {
+    const res = await api.post('/auth/send-otp', { email })
+    return res.data
+  }
+  // NEW: OTP login (step 2) -- verifies the code and logs the user in
+  const verifyOtp = async (email, otp) => {
+    const res = await api.post('/auth/verify-otp', { email, otp })
     localStorage.setItem('campusai_token', res.data.access_token)
     setToken(res.data.access_token)
   }
-
+  const signup = async (payload) => {
+    const res = await api.post('/auth/signup', payload)
+    return res.data // { message: ... } -- account is unverified until OTP is confirmed
+  }
   const logout = () => {
     localStorage.removeItem('campusai_token')
     setToken(null)
   }
-
   return (
-    <AuthContext.Provider value={{ token, login, signup, logout }}>
+    <AuthContext.Provider value={{ token, login, signup, logout, sendOtp, verifyOtp }}>
       {children}
     </AuthContext.Provider>
   )
 }
-
 export const useAuth = () => useContext(AuthContext)

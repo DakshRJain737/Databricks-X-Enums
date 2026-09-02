@@ -29,6 +29,20 @@ class Settings(BaseSettings):
 
     GENIE_LEADERBOARD_SPACE_ID: str = ""
 
+    # --- OTP login (NEW) ---
+    # Only emails ending in this domain may sign up / receive a login OTP.
+    ALLOWED_EMAIL_DOMAIN: str = "bmsce.ac.in"
+    OTP_EXPIRE_MINUTES: int = 10
+
+    # --- SMTP (NEW) — used to email OTP codes ---
+    # Leave SMTP_HOST blank during dev: OTPs will just be printed to the
+    # backend console instead of emailed, so you can test without creds.
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = "enums.databricks@gmail.com"
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = "CAMPUS.AI <enums.databricks@gmail.com>"
+
     class Config:
         env_file = ".env"
         extra = "ignore"
