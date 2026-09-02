@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import api from '../api/client'
 import GenieBadge from '../components/GenieBadge.jsx'
+import OpportunityHeatmap from '../components/OpportunityHeatmap.jsx'
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -101,6 +102,10 @@ export default function Placement() {
               </ReactMarkdown>
             </div>
           </div>
+
+          {result.opportunity_analysis && (
+            <OpportunityHeatmap data={result.opportunity_analysis} eligibility={result.eligibility} />
+          )}
         </>
       )}
     </div>

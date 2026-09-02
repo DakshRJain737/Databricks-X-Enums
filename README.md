@@ -62,3 +62,4 @@ frontend/
 ```
 
 # Databricks-X-Enums
+# Contributor Note

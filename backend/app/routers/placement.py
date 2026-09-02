@@ -1,23 +1,48 @@
 import re
-from fastapi import APIRouter, Depends, UploadFile, File, Form
-from pypdf import PdfReader
 import io
+
+from fastapi import APIRouter, Depends, UploadFile, File, Form
+from pydantic import BaseModel, ConfigDict
+from pypdf import PdfReader
+
 from app.core.security import get_current_user
 from app.core.db import User
 from app.core.databricks import get_genie, call_foundation_model
+from app.services.opportunity_analysis import (
+    run_opportunity_analysis,
+    simulate as simulate_opportunity,
+)
+
 
 router = APIRouter(prefix="/api/placement", tags=["placement"])
+
 
 # Real, published JD-style eligibility criteria (kept small & explicit —
 # swap for a Lakeflow-synced table in production).
 DRIVES = [
-    {"company": "Amazon", "role": "SDE-1", "min_cgpa": 7.0, "branches": ["CSE", "ISE", "AIML"],
-     "skills": ["dsa", "system design", "java", "python"]},
-    {"company": "TCS", "role": "Digital", "min_cgpa": 6.0, "branches": ["CSE", "ISE", "ECE", "AIML"],
-     "skills": ["dsa", "sql", "communication"]},
-    {"company": "Infosys", "role": "SDE", "min_cgpa": 6.5, "branches": ["CSE", "ISE"],
-     "skills": ["dsa", "oops", "dbms"]},
+    {
+        "company": "Amazon",
+        "role": "SDE-1",
+        "min_cgpa": 7.0,
+        "branches": ["CSE", "ISE", "AIML"],
+        "skills": ["dsa", "system design", "java", "python"],
+    },
+    {
+        "company": "TCS",
+        "role": "Digital",
+        "min_cgpa": 6.0,
+        "branches": ["CSE", "ISE", "ECE", "AIML"],
+        "skills": ["dsa", "sql", "communication"],
+    },
+    {
+        "company": "Infosys",
+        "role": "SDE",
+        "min_cgpa": 6.5,
+        "branches": ["CSE", "ISE"],
+        "skills": ["dsa", "oops", "dbms"],
+    },
 ]
+
 
 SKILL_KEYWORDS = [
     # Core CS fundamentals
@@ -73,6 +98,7 @@ def extract_text(file_bytes: bytes, filename: str) -> str:
     if filename.lower().endswith(".pdf"):
         reader = PdfReader(io.BytesIO(file_bytes))
         return "\n".join(page.extract_text() or "" for page in reader.pages)
+
     return file_bytes.decode(errors="ignore")
 
 
@@ -93,15 +119,27 @@ async def analyze_resume(
     found_skills = detect_skills(text)
 
     eligibility = []
+
     for drive in DRIVES:
-        eligible = cgpa >= drive["min_cgpa"] and branch.upper() in [b.upper() for b in drive["branches"]]
-        missing = [s for s in drive["skills"] if s not in found_skills]
+        eligible = (
+            cgpa >= drive["min_cgpa"]
+            and branch.upper() in [b.upper() for b in drive["branches"]]
+        )
+
+        missing = [
+            s for s in drive["skills"]
+            if s not in found_skills
+        ]
+
         eligibility.append({
             "company": drive["company"],
             "role": drive["role"],
             "eligible": eligible,
             "missing_skills": missing,
-            "matched_skills": [s for s in drive["skills"] if s in found_skills],
+            "matched_skills": [
+                s for s in drive["skills"]
+                if s in found_skills
+            ],
         })
 
     # 1) Genie handles the DATA question — something it can turn into SQL
@@ -111,6 +149,7 @@ async def analyze_resume(
         f"have min_cgpa <= {cgpa} and include '{branch}' in eligible_branches? "
         f"List company, role, and required_skills for each matching drive."
     )
+
     genie = get_genie("career_academics")
     genie_response = await genie.ask(genie_question)
 
@@ -118,15 +157,29 @@ async def analyze_resume(
     #    the eligibility + skill-gap data into an actual improvement plan.
     #    This is NOT a SQL question, so it doesn't go to Genie.
     plan_prompt = (
-        f"A {branch} student with CGPA {cgpa} has these detected skills: {found_skills}. "
+        f"A {branch} student with CGPA {cgpa} has these detected skills: "
+        f"{found_skills}. "
         f"Their eligibility results are: {eligibility}. "
         f"Write a short, encouraging readiness assessment (2-3 sentences) and a "
         f"3-point skill-gap improvement plan to become eligible for more drives."
     )
+
     plan_response = await call_foundation_model(plan_prompt)
 
     readiness_score = round(
-        100 * len(found_skills) / max(len(SKILL_KEYWORDS), 1), 1
+        100 * len(found_skills) / max(len(SKILL_KEYWORDS), 1),
+        1,
+    )
+
+    # 3) Opportunity Gap Analysis + Heatmap
+    #    This is additive to the existing placement analysis.
+    #    It reuses the same resume text and eligibility results already computed
+    #    above and does not modify detected_skills, readiness_score, or
+    #    eligibility[].missing_skills.
+    opportunity_analysis = run_opportunity_analysis(
+        DRIVES,
+        eligibility,
+        text,
     )
 
     return {
@@ -135,4 +188,43 @@ async def analyze_resume(
         "eligibility": eligibility,
         "genie_analysis": genie_response,
         "improvement_plan": plan_response,
+        "opportunity_analysis": opportunity_analysis,
     }
+
+
+# ---------------------------------------------------------------------------
+# Opportunity Analysis Simulation
+# ---------------------------------------------------------------------------
+
+class DriveEligibilityIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    company: str
+    role: str
+    eligible: bool
+
+
+class SimulateRequest(BaseModel):
+    skill_scores: dict[str, int]
+    eligibility: list[DriveEligibilityIn]
+    skill: str
+    new_score: int
+
+
+@router.post("/simulate")
+async def simulate_skill_improvement(
+    payload: SimulateRequest,
+    user: User = Depends(get_current_user),
+):
+    eligibility = [e.model_dump() for e in payload.eligibility]
+
+    return simulate_opportunity(
+        DRIVES,
+        eligibility,
+        payload.skill_scores,
+        payload.skill,
+        payload.new_score,
+    )
+
+
+
