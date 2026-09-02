@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import api from '../api/client'
 import GenieBadge from '../components/GenieBadge.jsx'
+import OpportunityHeatmap from '../components/OpportunityHeatmap.jsx'
 
 export default function Placement() {
   const [file, setFile] = useState(null)
@@ -90,6 +91,10 @@ export default function Placement() {
             <h2>Improvement plan <GenieBadge mode={result.improvement_plan.mode} /></h2>
             <div className="answer-box">{result.improvement_plan.answer}</div>
           </div>
+
+          {result.opportunity_analysis && (
+            <OpportunityHeatmap data={result.opportunity_analysis} eligibility={result.eligibility} />
+          )}
         </>
       )}
     </div>
