@@ -7,4 +7,4 @@ node_modules/
 venv/
 .venv/
 backend/.venv/
-backend/venv/
+backend/venv/backend/campusai.db
