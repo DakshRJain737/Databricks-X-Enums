@@ -107,8 +107,7 @@ const TOPBAR_STYLES = `
   font-weight: 700;
   font-size: 0.95rem;
   cursor: pointer;
-  box-shadow: 3px 3px 0px #111111;
-  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  
 }
 .campusai-user-icon {
   position: relative;
