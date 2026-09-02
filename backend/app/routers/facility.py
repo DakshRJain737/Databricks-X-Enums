@@ -76,6 +76,8 @@ async def create_slot(
     result = await db.execute(
         select(FacilitySlot).where(
             FacilitySlot.room_number == payload.room_number,
+            FacilitySlot.room_type == payload.room_type,
+            FacilitySlot.floor_number == payload.floor_number,
             FacilitySlot.day_of_week == payload.day_of_week,
         )
     )
@@ -84,8 +86,8 @@ async def create_slot(
         if payload.start_time < s.end_time and s.start_time < payload.end_time:
             raise HTTPException(
                 409,
-                f"{payload.room_number} is already booked {s.start_time}-{s.end_time} "
-                f"on {payload.day_of_week} ({s.purpose or 'no purpose given'})",
+                f"{payload.room_number} ({payload.room_type}, floor {payload.floor_number}) is already booked "
+                f"{s.start_time}-{s.end_time} on {payload.day_of_week} ({s.purpose or 'no purpose given'})",
             )
 
     slot = FacilitySlot(

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import api from '../api/client'
 import GenieBadge from '../components/GenieBadge.jsx'
+import FloorPlan from '../components/FloorPlan.jsx'
 
 //added here
 import ReactMarkdown from 'react-markdown';
@@ -21,7 +22,7 @@ function timesOverlap(aStart, aEnd, bStart, bEnd) {
 }
 
 export default function Facility() {
-  const [tab, setTab] = useState('grid') // 'grid' | 'check' | 'book' | 'ask'
+  const [tab, setTab] = useState('plan') // 'plan' | 'grid' | 'check' | 'book' | 'ask'
   const [slots, setSlots] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -38,6 +39,7 @@ export default function Facility() {
   useEffect(() => { loadSlots() }, [])
 
   const tabs = [
+    { id: 'plan', label: 'Floor plan' },
     { id: 'grid', label: 'Occupancy grid' },
     { id: 'check', label: 'Check a room' },
     { id: 'book', label: 'Book a slot' },
@@ -70,6 +72,7 @@ export default function Facility() {
       {error && <div className="fc-card fc-error">{error}</div>}
 
       <div className="fc-panel">
+        {tab === 'plan' && <FloorPlan slots={slots} loading={loading} onBooked={loadSlots} />}
         {tab === 'grid' && <OccupancyGrid slots={slots} loading={loading} />}
         {tab === 'check' && <CheckRoom slots={slots} loading={loading} />}
         {tab === 'book' && <BookSlot onBooked={loadSlots} />}
