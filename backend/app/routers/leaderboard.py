@@ -1,12 +1,16 @@
+import asyncio
 import json
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import get_current_user
 from app.core.db import get_db, User
 from app.core.config import settings
 from app.core.databricks import get_genie
+from app.core.scheduler import board_changed_event, force_refresh_user
+from app.services.external_stats import fetch_leetcode_calendar, fetch_github_contribution_calendar
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/leaderboard", tags=["leaderboard"])
@@ -16,13 +20,27 @@ class LeaderboardQuestion(BaseModel):
 
 
 def compute_score(u: User) -> float:
-    """Composite ranking score. Tune weights as you like."""
-    return (
-        (u.leetcode_total_solved or 0) * 2
-        + (u.leetcode_rating or 0) * 0.5
-        + (u.leetcode_contests_attended or 0) * 5
-        + (u.github_public_repos or 0) * 3
-        + (u.github_followers or 0) * 1
+    """Composite ranking score.
+
+    Difficulty-weighted LeetCode solves dominate (they're the clearest signal
+    of skill). Contest rating is dampened and only counts above a 1200
+    baseline so it doesn't swamp everything else on its own scale. GitHub
+    commit count (stored in the `github_following` column — see
+    external_stats.py) is capped so one outlier repo can't blow out the board.
+    """
+    solved_score = (
+        (u.leetcode_easy_solved or 0) * 1
+        + (u.leetcode_medium_solved or 0) * 3
+        + (u.leetcode_hard_solved or 0) * 5
+    )
+    contest_score = max(0, (u.leetcode_rating or 0) - 1200) * 0.3
+    consistency_score = (u.leetcode_contests_attended or 0) * 4
+    commit_count = u.github_following or 0  # repurposed field, see external_stats.py
+    commit_score = min(commit_count, 2000) * 0.05
+    community_score = (u.github_followers or 0) * 0.5
+
+    return round(
+        solved_score + contest_score + consistency_score + commit_score + community_score, 2
     )
 
 
@@ -45,6 +63,7 @@ def serialize(rank: int, u: User) -> dict:
         "leetcode_contests_attended": u.leetcode_contests_attended,
         "github_public_repos": u.github_public_repos,
         "github_followers": u.github_followers,
+        "github_commit_count": u.github_following,  # exposed under its real meaning
         "score": round(compute_score(u), 2),
     }
 
@@ -63,6 +82,64 @@ async def get_leaderboard(
     ranked = await _get_ranked_users(db)
     leaderboard = [serialize(i + 1, u) for i, u in enumerate(ranked)]
     return {"leaderboard": leaderboard, "total": len(leaderboard)}
+
+
+@router.get("/stream")
+async def leaderboard_stream():
+    """SSE endpoint — deliberately UNAUTHENTICATED. Browser EventSource
+    cannot send an Authorization header, so this route can't use the normal
+    Bearer-token dependency. That's fine: it emits only a bare 'refresh'
+    event with no payload — no user data crosses this endpoint. Clients
+    refetch the (still-authenticated) /api/leaderboard on receipt."""
+
+    async def event_gen():
+        while True:
+            await board_changed_event.wait()
+            board_changed_event.clear()
+            yield "event: refresh\ndata: {}\n\n"
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+    )
+
+
+@router.post("/sync/{usn}")
+async def sync_now(usn: str, user: User = Depends(get_current_user)):
+    """Manual 'refresh my stats now' trigger. Frontend should debounce/
+    rate-limit calls to this — it hits LeetCode/GitHub directly."""
+    ok = await force_refresh_user(usn)
+    if not ok:
+        raise HTTPException(404, f"No user with USN '{usn}'")
+    return {"synced": True}
+
+
+@router.get("/students/{usn}")
+async def student_profile(
+    usn: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(User).where(User.usn == usn))
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(404, f"No student found with USN '{usn}'")
+
+    ranked = await _get_ranked_users(db)
+    rank = next((i + 1 for i, u in enumerate(ranked) if u.usn == usn), None)
+
+    leetcode_calendar, github_calendar = await asyncio.gather(
+        asyncio.to_thread(fetch_leetcode_calendar, target.leetcode_username),
+        asyncio.to_thread(fetch_github_contribution_calendar, target.github_username),
+    )
+
+    profile = serialize(rank or 0, target)
+    return {
+        "profile": profile,
+        "leetcode_heatmap": leetcode_calendar,   # {submissionCalendar, totalActiveDays, streak}
+        "github_heatmap": github_calendar,       # {totalContributions, days: [{date,count}]}
+    }
 
 
 @router.get("/rank")
@@ -148,6 +225,7 @@ async def compare(
 
     return {"github": gh_data, "codeforces": cf_data, "genie_analysis": genie_response}
 
+
 @router.post("/ask")
 async def ask_leaderboard(
     payload: LeaderboardQuestion,
@@ -157,10 +235,7 @@ async def ask_leaderboard(
     if not question:
         raise HTTPException(400, "question cannot be empty")
 
-    # Leaderboard Q&A is a data lookup over main.campus_ai.users,
-    # so it goes to Genie (NL-to-SQL) rather than the raw foundation model.
     genie = get_genie("leaderboard")
-
     genie_question = (
         f"Using the main.campus_ai.users table, answer this question about "
         f"student rankings, LeetCode stats, GitHub stats, CGPA, branch, or skills: "
