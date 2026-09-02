@@ -72,7 +72,7 @@ export default function Placement() {
             </div>
           </div>
 
-          <div className="card">
+          {/* <div className="card">
             <h2>Eligibility</h2>
             {result.eligibility.map((e) => (
               <div key={e.company} style={{ marginBottom: 14 }}>
@@ -83,7 +83,7 @@ export default function Placement() {
                 </div>
               </div>
             ))}
-          </div>
+          </div> */}
 
           <div className="card">
             <h2>Genie data lookup <GenieBadge mode={result.genie_analysis.mode} /></h2>

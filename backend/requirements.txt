@@ -16,3 +16,4 @@ greenlet>=3.0
 databricks-sql-connector
 requests
 apscheduler==3.10.4
+pyarrow

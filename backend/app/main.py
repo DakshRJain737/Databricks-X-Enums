@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.db import init_db
 from app.core.config import DATABRICKS_CONFIGURED
 from app.core.scheduler import start_scheduler, stop_scheduler
+from app.services.placement_drives import refresh_drives
 from app.routers import auth, users, placement, pdf_qa, leaderboard, facility
 
 app = FastAPI(title="Campus.AI API", version="1.0.0")
@@ -26,6 +27,7 @@ app.include_router(facility.router)
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+    await refresh_drives()  # populate the cache once before serving traffic
     start_scheduler()
 
 
