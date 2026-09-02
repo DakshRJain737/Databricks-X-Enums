@@ -68,6 +68,7 @@ async def signup(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
+    print("In signup");
     if not is_allowed_domain(payload.email):
         raise HTTPException(403, f"Only @{settings.ALLOWED_EMAIL_DOMAIN} emails can register")
 
