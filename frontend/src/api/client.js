@@ -8,10 +8,17 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// Endpoints where a 401 means "wrong credentials / bad OTP", not "your
+// session expired" -- these should just show an inline error, never
+// force-redirect to /login (which would wipe that error off the screen).
+const AUTH_ENDPOINTS = ['/auth/login', '/auth/send-otp', '/auth/verify-otp', '/auth/reset-password', '/auth/signup']
+
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const url = err.config?.url || ''
+    const isAuthEndpoint = AUTH_ENDPOINTS.some((p) => url.includes(p))
+    if (err.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('campusai_token')
       window.location.href = '/login'
     }

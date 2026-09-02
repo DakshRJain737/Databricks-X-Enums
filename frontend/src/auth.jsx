@@ -28,12 +28,17 @@ export function AuthProvider({ children }) {
     const res = await api.post('/auth/signup', payload)
     return res.data // { message: ... } -- account is unverified until OTP is confirmed
   }
+  // NEW: Forgot password (step 2) -- verifies the OTP and sets a new password
+  const resetPassword = async (email, otp, newPassword) => {
+    const res = await api.post('/auth/reset-password', { email, otp, new_password: newPassword })
+    return res.data
+  }
   const logout = () => {
     localStorage.removeItem('campusai_token')
     setToken(null)
   }
   return (
-    <AuthContext.Provider value={{ token, login, signup, logout, sendOtp, verifyOtp }}>
+    <AuthContext.Provider value={{ token, login, signup, logout, sendOtp, verifyOtp, resetPassword }}>
       {children}
     </AuthContext.Provider>
   )

@@ -1,26 +1,66 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../auth.jsx'
-export default function Login() {
-  const { login } = useAuth()
+export default function ForgotPassword() {
+  const { sendOtp, resetPassword } = useAuth()
   const nav = useNavigate()
+  const [step, setStep] = useState('email') // 'email' | 'reset'
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [otp, setOtp] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
-  const submit = async (e) => {
+
+  const requestCode = async (e) => {
     e.preventDefault()
     setError('')
+    setInfo('')
     setLoading(true)
     try {
-      await login(email, password)
-      nav('/')
+      await sendOtp(email)
+      setInfo(`Code sent to ${email}`)
+      setStep('reset')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed')
+      setError(err.response?.data?.detail || 'Could not send code')
     } finally {
       setLoading(false)
     }
   }
+
+  const resendCode = async () => {
+    setError('')
+    setInfo('')
+    setLoading(true)
+    try {
+      await sendOtp(email)
+      setInfo(`Code re-sent to ${email}`)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Could not resend code')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const submitReset = async (e) => {
+    e.preventDefault()
+    setError('')
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+    setLoading(true)
+    try {
+      await resetPassword(email, otp, newPassword)
+      nav('/login')
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Could not reset password')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="auth-shell">
       <style>{AUTH_STYLES}</style>
@@ -29,40 +69,90 @@ export default function Login() {
         <div className="auth-wordmark">
           CAMPUS<span className="auth-accent-text">.AI</span>
         </div>
-        <p className="auth-tagline">Sign in to continue</p>
-        <form onSubmit={submit} className="auth-form">
-          <div className="auth-field">
-            <label className="auth-label">College email</label>
-            <input
-              className="auth-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              type="email"
-              placeholder="you@bmsce.ac.in"
-              required
-            />
-          </div>
-          <div className="auth-field">
-            <div className="auth-label-row">
-              <label className="auth-label">Password</label>
-              <Link to="/forgot-password" className="auth-linklike-static">Forgot password?</Link>
+        <p className="auth-tagline">
+          {step === 'email' ? 'Reset your password' : 'Enter the code and a new password'}
+        </p>
+
+        {step === 'email' && (
+          <form onSubmit={requestCode} className="auth-form">
+            <div className="auth-field">
+              <label className="auth-label">College email</label>
+              <input
+                className="auth-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                placeholder="you@bmsce.ac.in"
+                required
+                autoFocus
+              />
             </div>
-            <input
-              className="auth-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              placeholder="••••••••"
-              required
-            />
-          </div>
-          {error && <div className="auth-error">{error}</div>}
-          <button className="auth-submit" disabled={loading} type="submit">
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
+            {error && <div className="auth-error">{error}</div>}
+            <button className="auth-submit" disabled={loading} type="submit">
+              {loading ? 'Sending…' : 'Send code'}
+            </button>
+          </form>
+        )}
+
+        {step === 'reset' && (
+          <form onSubmit={submitReset} className="auth-form">
+            <div className="auth-field">
+              <label className="auth-label">6-digit code</label>
+              <input
+                className="auth-input"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                inputMode="numeric"
+                placeholder="123456"
+                maxLength={6}
+                required
+                autoFocus
+              />
+            </div>
+            <div className="auth-field">
+              <label className="auth-label">New password</label>
+              <input
+                className="auth-input"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                type="password"
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            <div className="auth-field">
+              <label className="auth-label">Confirm new password</label>
+              <input
+                className="auth-input"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                type="password"
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            {info && <div className="auth-info">{info}</div>}
+            {error && <div className="auth-error">{error}</div>}
+            <button className="auth-submit" disabled={loading} type="submit">
+              {loading ? 'Updating…' : 'Reset password'}
+            </button>
+            <div className="auth-otp-actions">
+              <button type="button" className="auth-linklike" onClick={resendCode} disabled={loading}>
+                Resend code
+              </button>
+              <button
+                type="button"
+                className="auth-linklike"
+                onClick={() => { setStep('email'); setOtp(''); setError(''); setInfo('') }}
+              >
+                Change email
+              </button>
+            </div>
+          </form>
+        )}
+
         <p className="auth-footer-text">
-          No account? <Link to="/signup" className="auth-link">Sign up</Link>
+          Remembered it? <Link to="/login" className="auth-link">Back to sign in</Link>
         </p>
       </div>
     </div>
@@ -76,7 +166,6 @@ const AUTH_STYLES = `
   --auth-text: #111111;
   --auth-muted: #4A4636;
   --auth-accent: #FF3EA5;
-  --auth-accent-glow: rgba(255, 62, 165, 0.25);
   position: relative;
   min-height: 100vh;
   display: flex;
@@ -124,15 +213,7 @@ const AUTH_STYLES = `
 }
 .auth-form { display: flex; flex-direction: column; gap: 16px; }
 .auth-field { display: flex; flex-direction: column; gap: 6px; }
-.auth-label-row { display: flex; justify-content: space-between; align-items: baseline; }
 .auth-label { font-size: 0.8rem; color: var(--auth-text); font-weight: 700; }
-.auth-linklike-static {
-  font-size: 0.78rem;
-  color: var(--auth-accent);
-  font-weight: 700;
-  text-decoration: none;
-}
-.auth-linklike-static:hover { text-decoration: underline; }
 .auth-input {
   background: #FFFFFF;
   border: 2.5px solid var(--auth-border);
