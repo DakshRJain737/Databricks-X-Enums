@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.db import init_db
 from app.core.config import DATABRICKS_CONFIGURED
+from app.core.scheduler import start_scheduler, stop_scheduler
 from app.routers import auth, users, placement, pdf_qa, leaderboard, facility
-from app.routers import facility
 
 app = FastAPI(title="Campus.AI API", version="1.0.0")
 
@@ -26,6 +26,12 @@ app.include_router(facility.router)
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+    start_scheduler()
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    stop_scheduler()
 
 
 @app.get("/api/health")
