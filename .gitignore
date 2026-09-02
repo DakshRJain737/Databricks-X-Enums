@@ -4,3 +4,7 @@ backend/.env.example
 *.pyc
 node_modules/
 **/node_modules/
+venv/
+.venv/
+backend/.venv/
+backend/venv/
