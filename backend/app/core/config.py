@@ -21,13 +21,24 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 720
 
-    # --- External public APIs (no key needed) ---
+    # --- External public APIs ---
     GITHUB_API_BASE: str = "https://api.github.com"
     CODEFORCES_API_BASE: str = "https://codeforces.com/api"
 
-    DATABRICKS_HTTP_PATH: str = ""
+    # GitHub token — required for commit-search + GraphQL contribution calendar.
+    # Without it you're rate-limited to 60 req/hr (unauthenticated), which will
+    # not survive periodic polling of a whole leaderboard.
+    GITHUB_TOKEN: str = ""
 
+    DATABRICKS_HTTP_PATH: str = ""
     GENIE_LEADERBOARD_SPACE_ID: str = ""
+
+    # --- Background sync ---
+    # Seconds between full leaderboard refresh cycles. Users are staggered
+    # within this window so we don't burst all API calls at once.
+    SYNC_INTERVAL_SECONDS: int = 300  # 5 min
+    # Max users refreshed per scheduler tick (keeps a single run bounded).
+    SYNC_BATCH_SIZE: int = 25
 
     class Config:
         env_file = ".env"
@@ -39,3 +50,6 @@ settings = Settings()
 # Convenience flag: are we able to call real Databricks Genie, or should
 # every Genie-backed endpoint fall back to a clearly-labelled mock response?
 DATABRICKS_CONFIGURED = bool(settings.DATABRICKS_HOST and settings.DATABRICKS_TOKEN)
+
+# Can we authenticate to GitHub for commit-search / GraphQL calendar calls?
+GITHUB_AUTH_CONFIGURED = bool(settings.GITHUB_TOKEN)
