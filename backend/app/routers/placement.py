@@ -8,6 +8,7 @@ from pypdf import PdfReader
 from app.core.security import get_current_user
 from app.core.db import User
 from app.core.databricks import get_genie, call_foundation_model
+from app.services.placement_drives import get_drives
 from app.services.opportunity_analysis import (
     run_opportunity_analysis,
     simulate as simulate_opportunity,
@@ -15,33 +16,6 @@ from app.services.opportunity_analysis import (
 
 
 router = APIRouter(prefix="/api/placement", tags=["placement"])
-
-
-# Real, published JD-style eligibility criteria (kept small & explicit —
-# swap for a Lakeflow-synced table in production).
-DRIVES = [
-    {
-        "company": "Amazon",
-        "role": "SDE-1",
-        "min_cgpa": 7.0,
-        "branches": ["CSE", "ISE", "AIML"],
-        "skills": ["dsa", "system design", "java", "python"],
-    },
-    {
-        "company": "TCS",
-        "role": "Digital",
-        "min_cgpa": 6.0,
-        "branches": ["CSE", "ISE", "ECE", "AIML"],
-        "skills": ["dsa", "sql", "communication"],
-    },
-    {
-        "company": "Infosys",
-        "role": "SDE",
-        "min_cgpa": 6.5,
-        "branches": ["CSE", "ISE"],
-        "skills": ["dsa", "oops", "dbms"],
-    },
-]
 
 
 SKILL_KEYWORDS = [
@@ -114,13 +88,18 @@ async def analyze_resume(
     branch: str = Form(...),
     user: User = Depends(get_current_user),
 ):
+    # Live drives, refreshed periodically from
+    # career_academics.raw.placement_drives (see placement_drives.py).
+    # Falls back to a small static list only if Databricks isn't configured.
+    drives = get_drives()
+
     raw = await resume.read()
     text = extract_text(raw, resume.filename)
     found_skills = detect_skills(text)
 
     eligibility = []
 
-    for drive in DRIVES:
+    for drive in drives:
         eligible = (
             cgpa >= drive["min_cgpa"]
             and branch.upper() in [b.upper() for b in drive["branches"]]
@@ -177,7 +156,7 @@ async def analyze_resume(
     #    above and does not modify detected_skills, readiness_score, or
     #    eligibility[].missing_skills.
     opportunity_analysis = run_opportunity_analysis(
-        DRIVES,
+        drives,
         eligibility,
         text,
     )
@@ -216,15 +195,13 @@ async def simulate_skill_improvement(
     payload: SimulateRequest,
     user: User = Depends(get_current_user),
 ):
+    drives = get_drives()
     eligibility = [e.model_dump() for e in payload.eligibility]
 
     return simulate_opportunity(
-        DRIVES,
+        drives,
         eligibility,
         payload.skill_scores,
         payload.skill,
         payload.new_score,
     )
-
-
-

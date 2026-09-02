@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.db import SessionLocal, User
 from app.core.databricks_sql import sync_user_to_databricks
 from app.services.external_stats import fetch_leetcode_stats, fetch_github_stats
+from app.services.placement_drives import refresh_drives
 
 logger = logging.getLogger("campusai.scheduler")
 
@@ -137,6 +138,16 @@ def start_scheduler():
         "interval",
         seconds=settings.SYNC_INTERVAL_SECONDS,
         id="refresh_batch",
+        max_instances=1,
+        coalesce=True,
+    )
+    # Placement drives change far less often than student stats — a longer
+    # interval is plenty. Runs independently of the user-stats job above.
+    scheduler.add_job(
+        refresh_drives,
+        "interval",
+        seconds=settings.DRIVES_SYNC_INTERVAL_SECONDS,
+        id="refresh_drives",
         max_instances=1,
         coalesce=True,
     )

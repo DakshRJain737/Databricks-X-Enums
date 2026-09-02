@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = "CAMPUS.AI <enums.databricks@gmail.com>"
 
+    DRIVES_SYNC_INTERVAL_SECONDS: int = 1800
+
     class Config:
         env_file = ".env"
         extra = "ignore"
