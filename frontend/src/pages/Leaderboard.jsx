@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../api/client'
 import GenieBadge from '../components/GenieBadge.jsx'
 
@@ -20,6 +21,24 @@ const PODIUM_STYLE = [
   { label: '2nd', accent: '#C7CCDA', glow: 'rgba(199,204,218,0.28)' },
   { label: '3rd', accent: '#D08A56', glow: 'rgba(208,138,86,0.28)' },
 ]
+
+// SSE hook — /leaderboard/stream is deliberately unauthenticated (EventSource
+// can't send an Authorization header, and the stream only emits an empty
+// 'refresh' ping, no user data). Any component using this just refetches
+// its own data on receipt.
+function useLeaderboardStream(onRefresh) {
+  const esRef = useRef(null)
+
+  useEffect(() => {
+    const es = new EventSource('/api/leaderboard/stream')
+    es.addEventListener('refresh', () => onRefresh())
+    es.onerror = () => {
+      // browser auto-reconnects EventSource on its own; nothing to do here
+    }
+    esRef.current = es
+    return () => es.close()
+  }, [onRefresh])
+}
 
 export default function Leaderboard() {
   const [tab, setTab] = useState('board') // 'board' | 'myrank' | 'live' | 'ask'
@@ -69,22 +88,23 @@ function FullBoard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const fetchBoard = useCallback(() => {
+    api.get('/leaderboard')
+      .then((res) => setRows(res.data.leaderboard))
+      .catch((err) => setError(err.response?.data?.detail || 'Failed to load leaderboard'))
+      .finally(() => setLoading(false))
+  }, [])
+
   useEffect(() => {
-    let cancelled = false
     setLoading(true)
     setError('')
-    api.get('/leaderboard')
-      .then((res) => {
-        if (!cancelled) setRows(res.data.leaderboard)
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.response?.data?.detail || 'Failed to load leaderboard')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => { cancelled = true }
-  }, [])
+    fetchBoard()
+  }, [fetchBoard])
+
+  // Live updates: whenever the backend scheduler detects a ranking change
+  // (new solve, new commit, etc.), silently refetch — no full-page loading
+  // state on refresh, just a quiet row swap.
+  useLeaderboardStream(fetchBoard)
 
   const maxScore = useMemo(
     () => rows.reduce((m, r) => Math.max(m, r.score || 0), 1),
@@ -119,7 +139,8 @@ function FullBoard() {
             const style = PODIUM_STYLE[i]
             const tier = tierFor(r.leetcode_rating)
             return (
-              <div
+              <Link
+                to={`/students/${r.usn}`}
                 key={r.usn || r.full_name}
                 className={`lb-podium-card lb-podium-${i}`}
                 style={{ '--accent': style.accent, '--glow': style.glow }}
@@ -133,7 +154,7 @@ function FullBoard() {
                   <span className="lb-dot" />
                   <span style={{ color: tier.color }}>{tier.name}</span>
                 </div>
-              </div>
+              </Link>
             )
           })}
         </div>
@@ -150,6 +171,7 @@ function FullBoard() {
               <th>Rating</th>
               <th>Contests</th>
               <th>Repos</th>
+              <th>Commits</th>
               <th>Followers</th>
               <th>Score</th>
             </tr>
@@ -162,10 +184,10 @@ function FullBoard() {
                 <tr key={r.usn || r.full_name} style={{ '--tier-color': tier.color }}>
                   <td className="lb-rank-cell">{r.rank}</td>
                   <td>
-                    <div className="lb-student-cell">
+                    <Link to={`/students/${r.usn}`} className="lb-student-cell lb-student-link">
                       <span className="lb-student-name">{r.full_name}</span>
                       <span className="lb-student-usn">{r.usn}</span>
-                    </div>
+                    </Link>
                   </td>
                   <td className="lb-muted">{r.branch}</td>
                   <td>{r.leetcode_total_solved}</td>
@@ -176,6 +198,7 @@ function FullBoard() {
                   </td>
                   <td className="lb-muted">{r.leetcode_contests_attended}</td>
                   <td className="lb-muted">{r.github_public_repos}</td>
+                  <td className="lb-muted">{r.github_commit_count ?? 0}</td>
                   <td className="lb-muted">{r.github_followers}</td>
                   <td>
                     <div className="lb-score-cell">
@@ -242,10 +265,10 @@ function MyRank() {
                 <span className="lb-you-rank-num">#{result.you.rank}</span>
                 <span className="lb-you-rank-of">of {result.total_users}</span>
               </div>
-              <div className="lb-you-identity">
+              <Link to={`/students/${result.you.usn}`} className="lb-you-identity lb-student-link">
                 <span className="lb-you-name">{result.you.full_name}</span>
                 <span className="lb-you-usn">{result.you.usn}</span>
-              </div>
+              </Link>
               <div className="lb-percentile-ring" style={{ '--pct': result.percentile }}>
                 <span>{result.percentile}%</span>
               </div>
@@ -298,10 +321,10 @@ function MyRank() {
                   >
                     <td className="lb-rank-cell">{p.rank}</td>
                     <td>
-                      <div className="lb-student-cell">
+                      <Link to={`/students/${p.usn}`} className="lb-student-cell lb-student-link">
                         <span className="lb-student-name">{p.full_name}</span>
                         <span className="lb-student-usn">{p.usn}</span>
-                      </div>
+                      </Link>
                     </td>
                     <td>{p.leetcode_total_solved}</td>
                     <td className="lb-muted">{p.github_public_repos}</td>
@@ -590,6 +613,9 @@ const LB_STYLES = `
   align-items: center;
   text-align: center;
   box-shadow: 6px 6px 0px var(--lb-border);
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
 }
 .lb-podium-0 { transform: translateY(-10px); background: var(--lb-surface); }
 .lb-podium-rank {
@@ -648,6 +674,8 @@ const LB_STYLES = `
   color: var(--lb-text);
 }
 .lb-student-cell { display: flex; flex-direction: column; }
+.lb-student-link { text-decoration: none; color: inherit; cursor: pointer; }
+.lb-student-link:hover .lb-student-name { text-decoration: underline; }
 .lb-student-name { font-weight: 700; }
 .lb-student-usn { color: var(--lb-muted); font-size: 0.76rem; font-weight: 600; }
 .lb-muted { color: var(--lb-muted); }

@@ -8,6 +8,7 @@ import Placement from './pages/Placement.jsx'
 import PdfQa from './pages/PdfQa.jsx'
 import Leaderboard from './pages/Leaderboard.jsx'
 import Facility from './pages/Facility.jsx'
+import StudentProfile from './pages/StudentProfile.jsx'
 
 function ProtectedRoute({ children }) {
   const { token } = useAuth()
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="pdf-qa" element={<PdfQa />} />
         <Route path="leaderboard" element={<Leaderboard />} />
         <Route path="facility" element={<Facility />} />
+        <Route path="students/:usn" element={<StudentProfile />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

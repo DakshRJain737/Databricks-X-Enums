@@ -1,24 +1,55 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../auth.jsx'
-
 export default function Login() {
-  const { login } = useAuth()
+  const { sendOtp, verifyOtp } = useAuth()
   const nav = useNavigate()
+  const [step, setStep] = useState('email') // 'email' | 'otp'
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [otp, setOtp] = useState('')
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const submit = async (e) => {
+  const requestOtp = async (e) => {
+    e.preventDefault()
+    setError('')
+    setInfo('')
+    setLoading(true)
+    try {
+      await sendOtp(email)
+      setInfo(`Code sent to ${email}`)
+      setStep('otp')
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Could not send OTP')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const submitOtp = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      await login(email, password)
+      await verifyOtp(email, otp)
       nav('/')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed')
+      setError(err.response?.data?.detail || 'Invalid OTP')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const resendOtp = async () => {
+    setError('')
+    setInfo('')
+    setLoading(true)
+    try {
+      await sendOtp(email)
+      setInfo(`Code re-sent to ${email}`)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Could not resend OTP')
     } finally {
       setLoading(false)
     }
@@ -27,46 +58,70 @@ export default function Login() {
   return (
     <div className="auth-shell">
       <style>{AUTH_STYLES}</style>
-
       <div className="auth-grid-bg" aria-hidden="true" />
-
       <div className="auth-panel">
         <div className="auth-wordmark">
           CAMPUS<span className="auth-accent-text">.AI</span>
         </div>
-        <p className="auth-tagline">Sign in to continue</p>
+        <p className="auth-tagline">
+          {step === 'email' ? 'Sign in with your college email' : 'Enter the code we sent you'}
+        </p>
 
-        <form onSubmit={submit} className="auth-form">
-          <div className="auth-field">
-            <label className="auth-label">College email</label>
-            <input
-              className="auth-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              type="email"
-              placeholder="you@college.edu"
-              required
-            />
-          </div>
+        {step === 'email' && (
+          <form onSubmit={requestOtp} className="auth-form">
+            <div className="auth-field">
+              <label className="auth-label">College email</label>
+              <input
+                className="auth-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                placeholder="you@bmsce.ac.in"
+                required
+                autoFocus
+              />
+            </div>
+            {error && <div className="auth-error">{error}</div>}
+            <button className="auth-submit" disabled={loading} type="submit">
+              {loading ? 'Sending…' : 'Send OTP'}
+            </button>
+          </form>
+        )}
 
-          <div className="auth-field">
-            <label className="auth-label">Password</label>
-            <input
-              className="auth-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              placeholder="••••••••"
-              required
-            />
-          </div>
-
-          {error && <div className="auth-error">{error}</div>}
-
-          <button className="auth-submit" disabled={loading} type="submit">
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
+        {step === 'otp' && (
+          <form onSubmit={submitOtp} className="auth-form">
+            <div className="auth-field">
+              <label className="auth-label">6-digit code</label>
+              <input
+                className="auth-input"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                inputMode="numeric"
+                placeholder="123456"
+                maxLength={6}
+                required
+                autoFocus
+              />
+            </div>
+            {info && <div className="auth-info">{info}</div>}
+            {error && <div className="auth-error">{error}</div>}
+            <button className="auth-submit" disabled={loading} type="submit">
+              {loading ? 'Verifying…' : 'Verify & Sign in'}
+            </button>
+            <div className="auth-otp-actions">
+              <button type="button" className="auth-linklike" onClick={resendOtp} disabled={loading}>
+                Resend code
+              </button>
+              <button
+                type="button"
+                className="auth-linklike"
+                onClick={() => { setStep('email'); setOtp(''); setError(''); setInfo('') }}
+              >
+                Change email
+              </button>
+            </div>
+          </form>
+        )}
 
         <p className="auth-footer-text">
           No account? <Link to="/signup" className="auth-link">Sign up</Link>
@@ -75,7 +130,6 @@ export default function Login() {
     </div>
   )
 }
-
 const AUTH_STYLES = `
 .auth-shell {
   --auth-bg: #F5F0E1;
@@ -85,7 +139,6 @@ const AUTH_STYLES = `
   --auth-muted: #4A4636;
   --auth-accent: #FF3EA5;
   --auth-accent-glow: rgba(255, 62, 165, 0.25);
-
   position: relative;
   min-height: 100vh;
   display: flex;
@@ -96,7 +149,6 @@ const AUTH_STYLES = `
   font-family: 'Inter', -apple-system, sans-serif;
   padding: 40px 16px;
 }
-
 .auth-grid-bg {
   position: absolute;
   inset: 0;
@@ -104,7 +156,6 @@ const AUTH_STYLES = `
   background-size: 22px 22px;
   opacity: 0.6;
 }
-
 .auth-panel {
   position: relative;
   z-index: 1;
@@ -116,7 +167,6 @@ const AUTH_STYLES = `
   padding: 36px 32px 30px;
   box-shadow: 8px 8px 0px var(--auth-border);
 }
-
 .auth-wordmark {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
@@ -128,18 +178,15 @@ const AUTH_STYLES = `
   color: var(--auth-surface);
   -webkit-text-stroke: 1.5px var(--auth-border);
 }
-
 .auth-tagline {
   color: var(--auth-muted);
   font-size: 0.88rem;
   font-weight: 600;
   margin: 6px 0 26px;
 }
-
 .auth-form { display: flex; flex-direction: column; gap: 16px; }
 .auth-field { display: flex; flex-direction: column; gap: 6px; }
 .auth-label { font-size: 0.8rem; color: var(--auth-text); font-weight: 700; }
-
 .auth-input {
   background: #FFFFFF;
   border: 2.5px solid var(--auth-border);
@@ -157,7 +204,6 @@ const AUTH_STYLES = `
   box-shadow: 3px 3px 0px var(--auth-border);
   transform: translate(-1px, -1px);
 }
-
 .auth-error {
   color: var(--auth-text);
   font-size: 0.85rem;
@@ -167,7 +213,15 @@ const AUTH_STYLES = `
   border-radius: 8px;
   padding: 9px 12px;
 }
-
+.auth-info {
+  color: var(--auth-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: #C6F6C6;
+  border: 2.5px solid var(--auth-border);
+  border-radius: 8px;
+  padding: 9px 12px;
+}
 .auth-submit {
   margin-top: 4px;
   background: var(--auth-accent);
@@ -185,7 +239,22 @@ const AUTH_STYLES = `
 .auth-submit:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: 6px 6px 0px var(--auth-border); }
 .auth-submit:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 2px 2px 0px var(--auth-border); }
 .auth-submit:disabled { opacity: 0.5; cursor: default; box-shadow: none; transform: none; }
-
+.auth-otp-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -4px;
+}
+.auth-linklike {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--auth-accent);
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.auth-linklike:disabled { opacity: 0.5; cursor: default; }
 .auth-footer-text {
   text-align: center;
   font-size: 0.85rem;
@@ -199,7 +268,6 @@ const AUTH_STYLES = `
   text-decoration: none;
 }
 .auth-link:hover { text-decoration: underline; }
-
 @media (max-width: 420px) {
   .auth-panel { max-width: 92vw; padding: 30px 22px 26px; }
 }
